@@ -58,6 +58,17 @@ export const transferMoney = async (senderId: number, receiverId: number, amount
         amount,
       },
     });
+
+    // Fetch user info for notification
+    const senderUser = await tx.user.findUnique({ where: { id: sender.userId } });
+    const receiverUser = await tx.user.findUnique({ where: { id: receiver.userId } });
+    // Log notification (simulate email/SMS)
+    if (senderUser) {
+      console.log(`[NOTIFY] Email/SMS to ${senderUser.email || senderUser.phone}: Vous avez envoyé ${amount}€ au compte #${receiverId}.`);
+    }
+    if (receiverUser) {
+      console.log(`[NOTIFY] Email/SMS to ${receiverUser.email || receiverUser.phone}: Vous avez reçu ${amount}€ du compte #${senderId}.`);
+    }
     return exchange;
   });
 };
