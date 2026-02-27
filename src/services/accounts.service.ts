@@ -29,3 +29,50 @@ export const createAccount = async (userId: number) => {
 export const deleteAccount = async (id: number) => {
   return prisma.account.delete({ where: { id } });
 };
+
+export const transferMoney = async (senderId: number, receiverId: number, amount: number) => {
+  if (amount <= 0) throw new Error("Le montant doit être positif");
+  if (senderId === receiverId) throw new Error("Impossible d'envoyer de l'argent à soi-même");
+
+  return await prisma.$transaction(async (tx: any) => {
+    const sender = await tx.account.findUnique({ where: { id: senderId } });
+    const receiver = await tx.account.findUnique({ where: { id: receiverId } });
+    if (!sender) throw new Error("Compte expéditeur introuvable");
+    if (!receiver) throw new Error("Compte destinataire introuvable");
+    if (sender.balance < amount) throw new Error("Solde insuffisant");
+
+    // Update balances
+    await tx.account.update({
+      where: { id: senderId },
+      data: { balance: { decrement: amount } },
+    });
+    await tx.account.update({
+      where: { id: receiverId },
+      data: { balance: { increment: amount } },
+    });
+
+    const exchange = await tx.exchange.create({
+      data: {
+        senderId,
+        receiverId,
+        amount,
+      },
+    });
+    return exchange;
+  });
+};
+
+export const getExchanges = async (accountId?: number) => {
+  if (accountId) {
+    return prisma.exchange.findMany({
+      where: {
+        OR: [
+          { senderId: accountId },
+          { receiverId: accountId },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+  return prisma.exchange.findMany({ orderBy: { createdAt: "desc" } });
+};
